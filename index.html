@@ -1,0 +1,504 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>코코포리아 로그 리더</title>
+<style>
+:root{
+  --bg:#ffffff; --panel:#ffffff; --text:#222; --muted:#7a7770; --line:#e3e0d8; --accent:#3b5bdb;
+  --dice-bg:#f2f2f0;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#16171a; --panel:#1e2024; --text:#e6e4df; --muted:#8d8b85; --line:#2f3238; --accent:#7c9cff;
+    --dice-bg:#262930;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#16171a; --panel:#1e2024; --text:#e6e4df; --muted:#8d8b85; --line:#2f3238; --accent:#7c9cff;
+  --dice-bg:#262930;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  background:var(--bg); color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",sans-serif;
+  line-height:1.7; font-size:var(--fs,13px);
+}
+body.export{background:transparent}
+.wrap{max-width:1010px; margin:0 auto; padding:20px 16px 80px}
+header.top{display:flex; flex-wrap:wrap; gap:12px; align-items:center; justify-content:space-between; margin-bottom:16px}
+h1{font-size:1.15rem; margin:0; font-weight:700}
+.tools{display:flex; flex-wrap:wrap; gap:8px; align-items:center}
+button,label.btn{
+  font:inherit; font-size:.85rem; color:var(--text); background:var(--panel);
+  border:1px solid var(--line); border-radius:8px; padding:6px 12px; cursor:pointer;
+}
+button:hover,label.btn:hover{border-color:var(--accent)}
+.opts{
+  display:grid; grid-template-columns:auto 1fr; gap:10px 16px; align-items:center;
+  background:var(--panel); border:1px solid var(--line); border-radius:10px;
+  padding:12px 16px; margin-bottom:16px; font-size:.85rem;
+}
+[hidden]{display:none !important}
+.opts .rl{color:var(--muted); font-weight:600; white-space:nowrap}
+.opts .rc{display:flex; flex-wrap:wrap; gap:6px 20px; align-items:center}
+.opts .hint{grid-column:1 / -1; color:var(--muted); font-size:.8rem; border-top:1px solid var(--line); padding-top:8px}
+.opts label{display:flex; align-items:center; gap:6px; cursor:pointer}
+.opts input[type=range]{
+  -webkit-appearance:none; appearance:none; width:110px; height:16px; margin:0; background:transparent; cursor:pointer;
+}
+.opts input[type=range]::-webkit-slider-runnable-track{height:4px; border-radius:2px; background:rgba(128,128,128,.3)}
+.opts input[type=range]::-moz-range-track{height:4px; border-radius:2px; background:rgba(128,128,128,.3)}
+.opts input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none; width:14px; height:14px; margin-top:-5px; border-radius:50%;
+  background:var(--accent); border:2px solid var(--panel); box-shadow:0 0 0 1px var(--accent);
+}
+.opts input[type=range]::-moz-range-thumb{
+  width:10px; height:10px; border-radius:50%; background:var(--accent); border:2px solid var(--panel); box-shadow:0 0 0 1px var(--accent);
+}
+.opts input[type=range]:disabled{opacity:.4; cursor:not-allowed}
+.opts input[type=checkbox]{accent-color:var(--accent)}
+.opts input[type=number]{
+  width:64px; font:inherit; font-size:.85rem; color:var(--text);
+  background:var(--dice-bg); border:1px solid var(--line); border-radius:6px; padding:3px 6px;
+}
+.drop{
+  border:2px dashed var(--line); border-radius:14px; padding:56px 20px; text-align:center;
+  color:var(--muted); background:var(--panel); transition:.15s;
+}
+.drop.over{border-color:var(--accent); color:var(--accent)}
+.drop strong{display:block; color:var(--text); font-size:1.05rem; margin-bottom:6px}
+.drop p{margin:4px 0}
+#log{display:none; max-width:var(--w,760px); margin:0 auto}
+#title{
+  display:block; width:100%; font:inherit; font-size:1.7em; font-weight:700; color:var(--text);
+  background:transparent; border:0; border-bottom:1px solid var(--line); border-radius:0;
+  padding:4px 0 8px; margin:0 0 8px; outline:none;
+}
+#title:focus{border-bottom-color:var(--accent)}
+#title::placeholder{color:var(--muted); font-weight:400}
+.doc-title{font-size:1.7em; font-weight:700; margin:0 0 8px; padding-bottom:8px; border-bottom:1px solid var(--line)}
+.sep{
+  display:flex; align-items:center; gap:10px; color:var(--muted); font-size:.75rem;
+  margin:26px 0 6px;
+}
+.sep::before,.sep::after{content:""; flex:1; height:1px; background:var(--line)}
+.block{margin:18px 0 0; padding-left:12px; border-left:3px solid var(--c,#888)}
+.name{font-weight:700; font-size:.95em; color:var(--c,#888); margin-bottom:2px; letter-spacing:.01em}
+.line{margin:0; white-space:pre-wrap; word-break:break-word}
+.line + .line{margin-top:.25em}
+[contenteditable]{outline:none}
+.line[contenteditable]{border-radius:4px; cursor:text; transition:background-color .15s, box-shadow .15s}
+.line[contenteditable]:hover,.line[contenteditable].hl{background:rgba(128,128,128,.10); box-shadow:0 0 0 4px rgba(128,128,128,.10)}
+.line[contenteditable]:focus{background:rgba(128,128,128,.06); box-shadow:0 0 0 4px rgba(128,128,128,.06), 0 0 0 5px var(--accent)}
+body.export .line{background:none;box-shadow:none}
+.hide-tab .sep{display:none}
+#delBtn{
+  position:fixed; z-index:20; width:26px; height:26px; padding:0; display:flex; align-items:center; justify-content:center;
+  color:var(--muted); background:var(--panel); border:1px solid var(--line); border-radius:7px; cursor:pointer;
+  box-shadow:0 1px 4px rgba(0,0,0,.12);
+  opacity:0; visibility:hidden; transform:translateY(2px); transition:opacity .15s, transform .15s, visibility .15s, color .15s, border-color .15s;
+}
+#delBtn.on{opacity:1; visibility:visible; transform:none}
+#delBtn:hover{color:#d9485f; border-color:#d9485f}
+#delBtn svg{width:14px; height:14px; display:block; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round}
+.block.shift{margin-left:var(--shift,50%)}
+.tabsel{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center}
+.toast{
+  position:fixed; bottom:20px; left:50%; transform:translateX(-50%);
+  background:var(--text); color:var(--bg); padding:8px 16px; border-radius:20px; font-size:.85rem;
+  opacity:0; pointer-events:none; transition:.2s;
+}
+.toast.show{opacity:1}
+@media (max-width:520px){ .wrap{padding:14px 12px 70px} .drop{padding:40px 14px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1>코코포리아 로그 리더</h1>
+    <div class="tools">
+      <label class="btn" for="file">파일 열기</label>
+      <input id="file" type="file" accept=".html,.htm,text/html" hidden>
+      <button id="undo" type="button" hidden>삭제 되돌리기</button>
+      <button id="copy" type="button" hidden>텍스트 복사</button>
+      <button id="save" type="button" hidden>HTML 저장</button>
+      <button id="theme" type="button">테마</button>
+    </div>
+  </header>
+
+  <div class="opts" id="opts" hidden>
+    <div class="rl">표시</div>
+    <div class="rc">
+      <label><input type="checkbox" id="oTab"> 탭 구분선</label>
+    </div>
+    <div class="rl">크기</div>
+    <div class="rc">
+      <label>글자 <input type="range" id="oFs" min="13" max="22" value="13">
+        <input type="number" id="oFsN" min="8" max="60" value="13"> px</label>
+      <label>폭 <input type="range" id="oW" min="520" max="1100" step="20" value="760">
+        <input type="number" id="oWN" min="300" max="2000" value="760"> px</label>
+      <label><input type="checkbox" id="oFluid" checked> 폭 화면에 맞추기</label>
+    </div>
+    <div class="rl" id="rlInc">포함할 탭</div>
+    <div class="rc" id="rcInc">
+      <div class="tabsel" id="incSel"></div>
+    </div>
+    <div class="rl" id="rlShift">들여쓰기</div>
+    <div class="rc" id="rcShift">
+      <div class="tabsel" id="tabSel"></div>
+      <label>시작 위치 <input type="number" id="oShN" min="0" max="80" value="50"> %</label>
+    </div>
+    <div class="hint">대사를 클릭하면 바로 수정할 수 있어요 · 들여쓰기는 체크한 탭의 대사를 화면 폭의 지정한 위치부터 표시해요</div>
+  </div>
+
+  <div class="drop" id="drop">
+    <strong>ccfolia 로그 HTML 파일을 여기에 끌어다 놓으세요</strong>
+    <p>또는 오른쪽 위 “파일 열기”를 눌러 선택</p>
+    <p style="font-size:.8rem">파일은 브라우저 안에서만 처리되며 어디로도 전송되지 않습니다.</p>
+  </div>
+
+  <div id="log">
+    <input id="title" type="text" placeholder="시나리오 제목을 입력하세요" autocomplete="off">
+    <div id="out"></div>
+  </div>
+</div>
+<button id="delBtn" type="button" title="이 대사 삭제" aria-label="이 대사 삭제"><svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg></button>
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  var $ = function(id){return document.getElementById(id)};
+  var root = document.documentElement;
+  var parsed = [];
+
+  function toast(msg){
+    var t=$('toast'); t.textContent=msg; t.classList.add('show');
+    clearTimeout(toast._t); toast._t=setTimeout(function(){t.classList.remove('show')},1600);
+  }
+
+  function getColor(style){
+    var m = /color\s*:\s*([^;]+)/i.exec(style||'');
+    return m ? m[1].trim() : '#888888';
+  }
+
+  function parse(html){
+    var doc = new DOMParser().parseFromString(html,'text/html');
+    var ps = doc.querySelectorAll('p');
+    var res = [];
+    ps.forEach(function(p){
+      var spans = p.querySelectorAll(':scope > span');
+      if(spans.length < 3) return;
+      var tab = spans[0].textContent.trim().replace(/^\[|\]$/g,'');
+      var name = spans[1].textContent.trim();
+      var clone = spans[2].cloneNode(true);
+      clone.querySelectorAll('br').forEach(function(b){ b.replaceWith('\n'); });
+      var text = clone.textContent.replace(/\s+$/,'').replace(/^\s+/,'');
+      if(!text) return;
+      res.push({tab:tab, name:name, color:getColor(p.getAttribute('style')), text:text});
+    });
+    return res;
+  }
+
+  function lineKind(text, name){
+    if(name === 'system') return 'sys';
+    if(/^(CC|CCB|S?\d*[dD]\d+|x\d|choice|schoice|シークレット)/i.test(text) && /＞|>|\(1D|\(\d*D/i.test(text)) return 'dice';
+    if(/^\d*[dD]\d+([+\-*]\d+)?\s*\(/.test(text)) return 'dice';
+    if(/^シークレットダイス/.test(text)) return 'dice';
+    return '';
+  }
+
+  /* 탭 이름 분류: 한국어/영어/일본어 이름을 같은 종류로 취급 (0 메인, 1 정보, 2 잡담, 3 그 외) */
+  var TAB_ALIASES = [
+    /^(main|메인|メイン)$/i,
+    /^(info|information|정보|インフォ|インフォメーション|情報)$/i,
+    /^(other|잡담|雑談|その他)$/i
+  ];
+  function tabRank(t){
+    t = (t || '').trim();
+    if(t === '') return 0;
+    for(var i=0;i<TAB_ALIASES.length;i++) if(TAB_ALIASES[i].test(t)) return i;
+    return 3;
+  }
+  function sortedTabs(list){
+    return list.map(function(t, i){ return {t:t, i:i, r:tabRank(t)}; })
+      .sort(function(a,b){ return a.r - b.r || a.i - b.i; })
+      .map(function(x){ return x.t; });
+  }
+
+  var EDIT = (function(){ var d=document.createElement('div'); d.setAttribute('contenteditable','plaintext-only'); return d.contentEditable==='plaintext-only' ? 'plaintext-only' : 'true'; })();
+
+  var shifted = {};
+  var included = {};
+
+  function buildTabSel(){
+    var box = $('tabSel'); box.innerHTML='';
+    $('rlShift').hidden = $('rcShift').hidden = true;
+    $('rlInc').hidden = $('rcInc').hidden = true;
+    $('incSel').innerHTML = '';
+    var tabs = [];
+    parsed.forEach(function(m){ if(tabs.indexOf(m.tab)<0) tabs.push(m.tab); });
+    if(tabs.length < 2) return;
+    tabs = sortedTabs(tabs);
+    $('rlShift').hidden = $('rcShift').hidden = false;
+    $('rlInc').hidden = $('rcInc').hidden = false;
+    tabs.forEach(function(tab){
+      var lb = document.createElement('label'), cb = document.createElement('input');
+      cb.type = 'checkbox'; cb.checked = included[tab] !== false;
+      cb.addEventListener('change', function(){
+        included[tab] = cb.checked;
+        if(tabs.every(function(t){ return included[t] === false; })){
+          included[tab] = true; cb.checked = true; toast('최소 한 개의 탭은 포함해야 해요'); return;
+        }
+        rerender();
+      });
+      lb.appendChild(cb); lb.appendChild(document.createTextNode(' ' + (tab || '메인')));
+      $('incSel').appendChild(lb);
+    });
+    tabs.forEach(function(tab){
+      var lb = document.createElement('label'), cb = document.createElement('input');
+      cb.type='checkbox'; cb.checked = !!shifted[tab];
+      cb.addEventListener('change', function(){
+        shifted[tab] = cb.checked;
+        Array.prototype.forEach.call($('out').querySelectorAll('.block'), function(b){
+          if(b.dataset.tab === tab) b.classList.toggle('shift', cb.checked);
+        });
+      });
+      lb.appendChild(cb); lb.appendChild(document.createTextNode(' ' + (tab || '메인')));
+      box.appendChild(lb);
+    });
+  }
+
+  function render(){
+    var out = $('out'); out.innerHTML='';
+    var frag = document.createDocumentFragment();
+    var lastTab = null, cur = null, lastName = null, lastColor = null;
+    parsed.forEach(function(m, idx){
+      if(m.del || included[m.tab] === false) return;
+      if(m.tab !== lastTab){
+        var s = document.createElement('div'); s.className='sep'; s.textContent = m.tab || '메인';
+        frag.appendChild(s);
+        lastTab = m.tab; cur = null; lastName = null;
+      }
+      if(!cur || m.name !== lastName || m.color !== lastColor){
+        cur = document.createElement('div');
+        cur.className = 'block' + (m.name==='system' ? ' is-sys' : '');
+        cur.style.setProperty('--c', m.color);
+        cur.dataset.tab = m.tab;
+        if(shifted[m.tab]) cur.classList.add('shift');
+        var n = document.createElement('div'); n.className='name'; n.textContent = m.name;
+        cur.appendChild(n);
+        frag.appendChild(cur);
+        lastName = m.name; lastColor = m.color;
+      }
+      var kind = lineKind(m.text, m.name);
+      var l = document.createElement('p');
+      l.className = 'line' + (kind ? ' '+kind : '');
+      l.textContent = m.text;
+      l.setAttribute('contenteditable', EDIT);
+      l.dataset.i = idx;
+      cur.appendChild(l);
+    });
+    out.appendChild(frag);
+    applyOpts();
+  }
+
+  $('out').addEventListener('input', function(e){
+    var el = e.target.closest && e.target.closest('.line[data-i]');
+    if(el && parsed[el.dataset.i]) parsed[el.dataset.i].text = el.innerText.replace(/\n$/,'');
+  });
+
+  /* 대사 삭제 */
+  var delBtn = $('delBtn'), hovered = null, hideT = null, delStack = [], redoStack = [];
+  var hlEl = null;
+  function setHl(el){ if(hlEl) hlEl.classList.remove('hl'); hlEl = el; if(el) el.classList.add('hl'); }
+  function hideBtn(){ delBtn.classList.remove('on'); setHl(null); }
+  function placeBtn(el){
+    setHl(el);
+    var rc = el.getBoundingClientRect();
+    delBtn.style.top = Math.max(0, rc.top - 1) + 'px';
+    delBtn.style.left = (rc.right - 30) + 'px';
+    delBtn.classList.add('on');
+  }
+  $('out').addEventListener('mouseover', function(e){
+    var el = e.target.closest && e.target.closest('.line[data-i]');
+    if(!el) return;
+    clearTimeout(hideT); hovered = el; placeBtn(el);
+  });
+  $('out').addEventListener('mouseleave', function(){ hideT = setTimeout(hideBtn, 200); });
+  delBtn.addEventListener('mouseenter', function(){ clearTimeout(hideT); });
+  delBtn.addEventListener('mouseleave', function(){ hideT = setTimeout(hideBtn, 200); });
+  window.addEventListener('scroll', hideBtn, {passive:true});
+  delBtn.addEventListener('mousedown', function(e){ e.preventDefault(); });
+  function rerender(){ var y = window.scrollY; render(); window.scrollTo(0, y); }
+  delBtn.addEventListener('click', function(){
+    if(!hovered) return;
+    var i = +hovered.dataset.i;
+    if(!parsed[i] || parsed[i].del) return;
+    parsed[i].del = true; delStack.push(i); redoStack = [];
+    hideBtn(); hovered = null;
+    $('undo').hidden = false;
+    rerender();
+  });
+  function undoDelete(){
+    var i = delStack.pop();
+    if(i === undefined) return false;
+    redoStack.push(i);
+    parsed[i].del = false;
+    if(!delStack.length) $('undo').hidden = true;
+    rerender(); toast('되돌렸어요');
+    return true;
+  }
+  function redoDelete(){
+    var i = redoStack.pop();
+    if(i === undefined) return false;
+    parsed[i].del = true; delStack.push(i);
+    $('undo').hidden = false;
+    rerender();
+    return true;
+  }
+  $('undo').addEventListener('click', undoDelete);
+  document.addEventListener('keydown', function(e){
+    if(!(e.ctrlKey || e.metaKey) || e.altKey) return;
+    var k = e.key.toLowerCase();
+    var isUndo = k === 'z' && !e.shiftKey, isRedo = k === 'y' || (k === 'z' && e.shiftKey);
+    if(!isUndo && !isRedo) return;
+    var a = document.activeElement;
+    if(a && (a.isContentEditable || /^(INPUT|TEXTAREA)$/.test(a.tagName)) && a.type !== 'checkbox' && a.type !== 'range') return; /* 글자 수정 중이면 기본 동작 */
+    if((isUndo ? undoDelete() : redoDelete())) e.preventDefault();
+  });
+
+  function num(id){
+    var n=$(id), v=parseInt(n.value,10);
+    if(isNaN(v)) v=+n.defaultValue;
+    return Math.max(+n.min, Math.min(+n.max, v));
+  }
+
+  function applyOpts(){
+    var o = $('out');
+    o.classList.toggle('hide-tab', !$('oTab').checked);
+    document.body.style.setProperty('--fs', num('oFsN') + 'px');
+    var fl = $('oFluid').checked;
+    $('oW').disabled = $('oWN').disabled = fl;
+    document.body.style.setProperty('--w', fl ? '100%' : num('oWN') + 'px');
+    document.body.style.setProperty('--shift', num('oShN') + '%');
+  }
+
+  function load(file){
+    if(!file) return;
+    var r = new FileReader();
+    r.onload = function(){
+      parsed = parse(String(r.result));
+      if(!parsed.length){ toast('읽을 수 있는 대사를 찾지 못했어요'); return; }
+      $('title').value = file.name.replace(/\.(html?|htm)$/i,'').replace(/\[[^\]]*\]\s*$/,'').trim();
+      $('drop').style.display='none';
+      $('log').style.display='block';
+      ['opts','copy','save'].forEach(function(id){ $(id).hidden=false; });
+      shifted = {}; included = {}; delStack = []; redoStack = []; $('undo').hidden = true;
+      parsed.forEach(function(m){ if(tabRank(m.tab) === 2) shifted[m.tab] = true; });
+      var isMain = function(t){ return tabRank(t) === 0; };
+      var allTabs = []; parsed.forEach(function(m){ if(allTabs.indexOf(m.tab) < 0) allTabs.push(m.tab); });
+      if(allTabs.some(isMain)) allTabs.forEach(function(t){ included[t] = isMain(t); });
+      buildTabSel();
+      render();
+      window.scrollTo(0,0);
+    };
+    r.readAsText(file,'utf-8');
+  }
+
+  $('file').addEventListener('change', function(e){ load(e.target.files[0]); e.target.value=''; });
+
+  var drop = $('drop');
+  ['dragenter','dragover'].forEach(function(ev){
+    document.addEventListener(ev, function(e){ e.preventDefault(); drop.classList.add('over'); });
+  });
+  ['dragleave','drop'].forEach(function(ev){
+    document.addEventListener(ev, function(e){ e.preventDefault(); drop.classList.remove('over'); });
+  });
+  document.addEventListener('drop', function(e){
+    var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if(f) load(f);
+  });
+
+  ['oTab','oFluid'].forEach(function(id){ $(id).addEventListener('input', applyOpts); });
+  function link(rId, nId){
+    var r=$(rId), n=$(nId);
+    r.addEventListener('input', function(){ n.value=r.value; applyOpts(); });
+    n.addEventListener('input', applyOpts);
+    n.addEventListener('change', function(){ n.value=num(nId); r.value=n.value; applyOpts(); });
+  }
+  $('oShN').addEventListener('input', applyOpts);
+  $('oShN').addEventListener('change', function(){ $('oShN').value = num('oShN'); applyOpts(); });
+  link('oFs','oFsN'); link('oW','oWN');
+
+  $('theme').addEventListener('click', function(){
+    var cur = root.getAttribute('data-theme');
+    if(!cur){ cur = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'; }
+    root.setAttribute('data-theme', cur === 'dark' ? 'light' : 'dark');
+  });
+
+  $('copy').addEventListener('click', function(){
+    var lines = []; var lastTab=null, lastName=null;
+    var title = $('title').value.trim();
+    if(title) lines.push(title);
+    parsed.forEach(function(m){
+      if(m.del || included[m.tab] === false) return;
+      if(m.tab!==lastTab){ lines.push('', '── '+(m.tab||'메인')+' ──'); lastTab=m.tab; lastName=null; }
+      if(m.name!==lastName){ lines.push('', '['+m.name+']'); lastName=m.name; }
+      lines.push(m.text);
+    });
+    var txt = lines.join('\n').trim();
+    function done(){ toast('복사했어요'); }
+    function fallback(t){
+      var ta=document.createElement('textarea'); ta.value=t; document.body.appendChild(ta);
+      ta.select(); try{document.execCommand('copy'); done();}catch(e){toast('복사에 실패했어요');}
+      ta.remove();
+    }
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(txt).then(done, function(){ fallback(txt); });
+    } else fallback(txt);
+  });
+
+  function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  var EXPORT_CSS =
+    '.ccf-log{font-family:inherit;font-size:var(--fs,13px);line-height:1.7;color:inherit;background:transparent;max-width:var(--w,760px);margin:0 auto;box-sizing:border-box}' +
+    '.ccf-log *{box-sizing:border-box}' +
+    '.ccf-log .ccf-doc-title{font-size:1.7em;font-weight:700;margin:0 0 8px;padding:0 0 8px;border-bottom:1px solid rgba(128,128,128,.35)}' +
+    '.ccf-log .ccf-sep{display:flex;align-items:center;gap:10px;opacity:.6;font-size:.85em;margin:26px 0 6px}' +
+    '.ccf-log .ccf-sep::before,.ccf-log .ccf-sep::after{content:"";flex:1;height:1px;background:rgba(128,128,128,.4)}' +
+    '.ccf-log .ccf-block{margin:18px 0 0;padding:0 0 0 12px;border-left:3px solid var(--c,#888)}' +
+    '.ccf-log .ccf-block.ccf-shift{margin-left:var(--shift,50%)}' +
+    '.ccf-log .ccf-name{font-weight:700;font-size:.95em;color:var(--c,#888);margin:0 0 2px}' +
+    '.ccf-log .ccf-line{margin:0;padding:0;white-space:pre-wrap;word-break:break-word}' +
+    '.ccf-log .ccf-line + .ccf-line{margin-top:.25em}' +
+    '.ccf-log.ccf-hide-tab .ccf-sep{display:none}';
+
+  $('save').addEventListener('click', function(){
+    var title = $('title').value.trim();
+    var clone = $('out').cloneNode(true);
+    Array.prototype.forEach.call(clone.querySelectorAll('.hl'), function(e){ e.classList.remove('hl'); });
+    Array.prototype.forEach.call(clone.querySelectorAll('.block.shift'), function(b){ b.style.marginLeft = num('oShN') + '%'; });
+    var body = clone.innerHTML
+      .replace(/ contenteditable="[^"]*"/g,'').replace(/ data-i="\d+"/g,'').replace(/ data-tab="[^"]*"/g,'')
+      .replace(/class="([^"]*)"/g, function(_, c){ return 'class="' + c.split(/\s+/).filter(Boolean).map(function(t){ return 'ccf-'+t; }).join(' ') + '"'; });
+    var w = $('oFluid').checked ? '100%' : num('oWN') + 'px';
+    var html = '<meta charset="utf-8">\n<style>' + EXPORT_CSS + '</style>\n' +
+      '<div class="ccf-log' + ($('oTab').checked ? '' : ' ccf-hide-tab') + '" style="--fs:' + num('oFsN') + 'px;--w:' + w + ';--shift:' + num('oShN') + '%">' +
+      (title ? '<div class="ccf-doc-title">' + esc(title) + '</div>' : '') +
+      body + '</div>\n';
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([html],{type:'text/html'}));
+    a.download = (title || 'log-readable') + '.html';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){URL.revokeObjectURL(a.href)}, 1000);
+  });
+})();
+</script>
+</body>
+</html>
